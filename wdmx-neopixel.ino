@@ -20,7 +20,7 @@ const float MAX_BATTERY_VOLTAGE = 4.2; // Max LiPoly voltage of a 3.7 battery is
 #define RF24_PIN_CSN    4    // GPIO connected to nRF24L01 CE pin (module pin 4)
 #define LED_POWER      33    // Power pin that needs to be pulled HIGH. Applicable to Arduino PropMaker.
 #define LED_PIN        14    // GPIO connected to LED Data
-#define LED_COUNT      50    // How many LED pixels are attached to the Arduino?
+#define LED_COUNT      150   // How many LED pixels are attached to the Arduino?
 #define LED_CONFIG     NEO_RGB + NEO_KHZ800
 #define BAT_VOLT_PIN   A13
 #define STATUS_LED_PIN 13
@@ -59,7 +59,8 @@ static const uint32_t WAIT_MASKS[19] = {0x01, 0x03, 0x07, 0x0f, 0x1f, 0x3f, 0x7f
 int dmx_start = 225; // DMX start address, zero-based
 uint16_t dmx_channels = 25; // Number of DMX clannels to use. If we hav more LEDs than channels, wrap over.
 
-static unsigned long lastPayloadTime;
+static unsigned long lastPayloadTime = 0;
+static unsigned int scanIterations = 0;
 static unsigned int rxCount = 0;
 static uint8_t dmxBuf[DMX_BUFSIZE];
 
@@ -131,7 +132,7 @@ void doScan(int unitID) {
     radio.startListening();
     radio.setChannel(rfCH);
     #ifdef VERBOSE
-    Serial.printf("Trying channel %d (set to %d), unit ID %d\n", radio.getChannel(), rfCH, unitID);
+    Serial.printf("Iteration %d, trying channel %d (%d), unit ID %d\n", scanIterations, radio.getChannel(), rfCH, unitID);
     #endif
 
     unsigned long started_waiting_at = micros(); // timeout setup
@@ -147,6 +148,7 @@ void doScan(int unitID) {
       radio.read(&rxBuf, sizeof(rxBuf));
       if (rxBuf.magic == WDMX_MAGIC) {
         gotLock = true;
+        scanIterations = 0;
         #ifdef VERBOSE
         Serial.printf("Found a transmitter on channel %d, unit ID %d\n", rfCH, unitID);
         #endif
@@ -173,8 +175,8 @@ void loop() {
   wdmxReceiveBuffer rxBuf;
 
   if (!gotLock) {
-  // Bring up the status LED
-  digitalWrite(LED_POWER, HIGH); // Turn on power pin for PropMaker NeoPixel output
+    // Bring up the status LED
+    digitalWrite(LED_POWER, HIGH); // Turn on power pin for PropMaker NeoPixel output
 
     // Tbd: Should we clear the DMX buffer when we lost the transmitter? Should we make this configurable?
     clearDmx();
@@ -187,6 +189,8 @@ void loop() {
         break;
       }
     }
+
+    scanIterations++;
   }
 
   while (radio.available()) {
@@ -247,5 +251,10 @@ void loop() {
   if (millis() - lastPayloadTime > 5000) {
     gotLock = false;
     Serial.println ("Not received a payload for > 5s");
+  }
+
+  if ((lastPayloadTime != 0) && (millis() - lastPayloadTime > 600000) || (lastPayloadTime == 0 && scanIterations > 10)) {
+    Serial.println("Not received a payload for > 60 seconds, restarting");
+    ESP.restart();
   }
 } //end of main loop
