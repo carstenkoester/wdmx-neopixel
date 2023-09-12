@@ -51,12 +51,12 @@ TaskHandle_t neopixelOutputTask;
 RF24 radio(RF24_PIN_CE, RF24_PIN_CSN);
 Adafruit_NeoPixel strip(LED_COUNT, LED_PIN, LED_CONFIG);
 
-static unsigned long lastPayloadTime = 0;
 static unsigned int rxCount = 0;
+static unsigned int rxErrCount = 0;
+static unsigned int irqCount = 0;
 static uint8_t dmxBuf[DMX_BUFSIZE];
 
-static unsigned long lastRxCount;
-
+static unsigned int lastRxCount;
 
 uint64_t getAddress(int unitID, int channelID) {
   union wdmxAddress {
@@ -143,19 +143,24 @@ void neopixelOutputLoop(void * parameters) {
 
 void rxPacket() {
   wdmxReceiveBuffer rxBuf;
+  bool tx_ds, tx_df, rx_dr;
+
+  irqCount++;
 
   while (radio.available()) {
     /*
      * Read DMX values from radio.
      */
-  
+
+    // We have all IRQs except rx_dr masked, but https://nrf24.github.io/RF24/classRF24.html#a127105eb7a3b351cfe777c1cec50627a seems to suggest that it is
+    // wise to call whatHappened() anyway
+    radio.whatHappened(tx_ds, tx_df, rx_dr);
     radio.read(&rxBuf, sizeof(rxBuf));
     if (rxBuf.magic != WDMX_MAGIC) {
       // Received packet with unexpected magic number. Ignore.
+      rxErrCount++;
       continue;
     }
-
-    lastPayloadTime = millis();
 
     rxCount++;
 
@@ -169,10 +174,10 @@ void rxPacket() {
   }
 
   // Pulse status LED when we're receiving
-  if ((rxCount / 256) % 2) {
-    analogWrite(STATUS_LED_PIN, rxCount % 256);
+  if ((rxCount / 1024) % 2) {
+    analogWrite(STATUS_LED_PIN, (rxCount % 1024)/4);
   } else {
-    analogWrite(STATUS_LED_PIN, 255-(rxCount % 256));
+    analogWrite(STATUS_LED_PIN, 255-((rxCount % 1024)/4));
   }
 }
 
@@ -195,8 +200,8 @@ void setup() {
   #endif
   radio.setDataRate(RF24_250KBPS);
   radio.setCRCLength(RF24_CRC_16);
-  radio.setPALevel(RF24_PA_MAX);
-  //radio.setPALevel(RF24_PA_LOW);
+  //radio.setPALevel(RF24_PA_MAX);
+  radio.setPALevel(RF24_PA_LOW);
   radio.setAutoAck(false);
   radio.setPayloadSize(WDMX_PAYLOAD_SIZE);
 
@@ -209,7 +214,6 @@ void setup() {
       Serial.printf("Scanning for Unit ID %d\n", unitID);
       gotLock = doScan(unitID);
       if (gotLock) {
-        lastPayloadTime = millis();
         break;
       }
     }
@@ -219,7 +223,7 @@ void setup() {
   }
 
   Serial.printf("Got lock\n");
-  radio.maskIRQ(1,1,0);
+  radio.maskIRQ(true, true, false); // call IRQ only on rx_ready event
   attachInterrupt(RF24_PIN_IRQ, rxPacket, FALLING);
 
   // NeoPixel setup
@@ -257,7 +261,7 @@ void loop() {
   int rawValue = analogRead(BAT_VOLT_PIN);
   float voltageLevel = (rawValue / MAX_ANALOG_VAL) * 2 * 1.1 * 3.3; // calculate voltage level
   float batteryFraction = voltageLevel / MAX_BATTERY_VOLTAGE;
-  Serial.printf("RxCount: %d (avg %d/sec), Bat Raw: %d Voltage: %fV Percent: %.2f%%\n", rxCount, (rxCount/millis()*1000), rawValue, voltageLevel, (batteryFraction * 100));
+  Serial.printf("RxCount: %d (avg %f/sec), irqCount %d, errCount %d, Bat Raw: %d Voltage: %fV Percent: %.2f%%\n", rxCount, ((float)rxCount/millis()*1000), irqCount, rxErrCount, rawValue, voltageLevel, (batteryFraction * 100));
 
   delay(1000);
 }
