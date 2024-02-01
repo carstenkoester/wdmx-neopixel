@@ -1,0 +1,4 @@
+Todo
+
+- Re-organize directories - should I create a single "arduino stuff" repo?
+- Configuration via bluetooth! :)

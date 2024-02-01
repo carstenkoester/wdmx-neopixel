@@ -19,10 +19,9 @@
 #define RF24_PIN_CE                    25   // GPIO connected to nRF24L01 CE pin (module pin 3)
 #define RF24_PIN_CSN                    4   // GPIO connected to nRF24L01 CSN pin (module pin 4)
 // #define RF24_PIN_IRQ                21   // GPIO connected to nRF24L01 IRQ pin (module pin 8) - NOT USED IN THIS VERSION
-#define LED_POWER                      33   // Power pin that needs to be pulled HIGH. Applicable to Arduino PropMaker.
-#define LED_PIN                        14   // GPIO connected to Neopixel LED Data
-#define LED_COUNT                     150   // How many LED pixels are attached to the Arduino?
-#define LED_CONFIG   NEO_RGB + NEO_KHZ800   // NEO_GRB / NEO_RGB / NEO_RGBW
+
+#define LED_PIN                        33   // Pin that the LED is on
+
 #define BAT_VOLT_PIN                  A13   // Battery voltage measure pin
 #define STATUS_LED_PIN                 13   // Status indicator LED pin
 #define MAX_ANALOG_VAL             4095.0
@@ -31,8 +30,7 @@
 /*
  * Runtime configurables
  */
-int dmx_start = 0;           // DMX start address, zero-based
-uint16_t dmx_channels = 25;  // Number of DMX clannels to use. If we hav more LEDs than channels, wrap over.
+int dmx_address = 2;                        // DMX  address, 1-512
 
 /*
  * Structs and forward declarations
@@ -180,8 +178,8 @@ void setup() {
   Serial.printf("Got lock\n");
 
   // Power PropMaker wing NeoPixel circuit
-  pinMode(LED_POWER, OUTPUT);
-  digitalWrite(LED_POWER, HIGH);
+  pinMode(LED_PIN, OUTPUT);
+  digitalWrite(LED_PIN, HIGH);
 
   // Clear the DMX buffer
   memset(&dmxBuf, 0x00, sizeof(dmxBuf)); // Clear DMX buffer
@@ -238,20 +236,10 @@ void loop() {
 }
 
 void neopixelOutputLoop(void * parameters) {
-  Adafruit_NeoPixel strip(LED_COUNT, LED_PIN, LED_CONFIG);
-
-  // NeoPixel setup
-  strip.begin();           // INITIALIZE NeoPixel strip object (REQUIRED)
-  strip.show();            // Turn OFF all pixels before starting loop
-
   unsigned long outputLoopCount = 0;
 
   for(;;) {
-    for(int i=0; i<strip.numPixels(); i++) {
-      int startAddress = dmx_start+((i%dmx_channels)*3);
-      strip.setPixelColor(i, (uint32_t) (dmxBuf[startAddress] << 16 | dmxBuf[startAddress+1] << 8 | dmxBuf[startAddress+2]));
-    }
-    strip.show();
+    analogWrite(LED_PIN, dmxBuf[dmx_address-1]);
     outputLoopCount++;
     delay(25);
 
