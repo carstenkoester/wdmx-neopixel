@@ -28,11 +28,20 @@
 #define MAX_ANALOG_VAL             4095.0
 #define MAX_BATTERY_VOLTAGE           4.2   // Max LiPoly voltage of a 3.7 battery is 4.2
 
+enum UnitID {
+  RED = 1,
+  GREEN = 2,
+  BLUE = 4,
+  PURPLE = 5,
+  CYAN = 7
+};
+#define UNIT_ID                      BLUE
+
 /*
  * Runtime configurables
  */
-int dmx_start = 0;           // DMX start address, zero-based
-uint16_t dmx_channels = 25;  // Number of DMX clannels to use. If we hav more LEDs than channels, wrap over.
+int dmx_start = 5;           // DMX start address 1-512
+uint16_t dmx_channels = 150; // Number of DMX clannels to use. If we hav more LEDs than channels, wrap over.
 
 /*
  * Structs and forward declarations
@@ -66,7 +75,7 @@ static uint8_t dmxBuf[DMX_BUFSIZE];
  * for a description of these values.
  *
  */
-uint64_t getAddress(int unitID, int channelID) {
+uint64_t getAddress(UnitID unitID, int channelID) {
   union wdmxAddress {
     struct {
       uint8_t channel;      // Channel ID
@@ -90,14 +99,7 @@ uint64_t getAddress(int unitID, int channelID) {
 /*
  * Given a Unit ID, probe all channels to see if we're receiving data for this unit ID
  */
-bool doScan(int unitID) {
-  /* Unit IDs
-      1: Red
-      2: Green
-      4: Blue
-      5: Purple
-      7: Cyan    
-   */
+bool doScan(UnitID unitID) {
   wdmxReceiveBuffer rxBuf;
 
   for (int rfCH = 0; rfCH < 126; rfCH++) {  
@@ -165,13 +167,8 @@ void setup() {
   bool gotLock;
 
   for (;;) {
-    for (int unitID = 1; unitID < 8; unitID++) {
-      Serial.printf("Scanning for Unit ID %d\n", unitID);
-      gotLock = doScan(unitID);
-      if (gotLock) {
-        break;
-      }
-    }
+    Serial.printf("Scanning for Unit ID %d\n", UNIT_ID);
+    gotLock = doScan(UNIT_ID);
     if (gotLock) {
       break;
     }
@@ -248,7 +245,7 @@ void neopixelOutputLoop(void * parameters) {
 
   for(;;) {
     for(int i=0; i<strip.numPixels(); i++) {
-      int startAddress = dmx_start+((i%dmx_channels)*3);
+      int startAddress = dmx_start-1+((i%dmx_channels)*3);
       strip.setPixelColor(i, (uint32_t) (dmxBuf[startAddress] << 16 | dmxBuf[startAddress+1] << 8 | dmxBuf[startAddress+2]));
     }
     strip.show();
