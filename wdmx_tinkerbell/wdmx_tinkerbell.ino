@@ -20,8 +20,8 @@
 #define RF24_PIN_CSN                    4   // GPIO connected to nRF24L01 CSN pin (module pin 4)
 #define LED_POWER                      33   // Power pin that needs to be pulled HIGH. Applicable to Arduino PropMaker.
 #define LED_PIN                        14   // GPIO connected to Neopixel LED Data
-#define LED_COUNT                     300   // How many LED pixels are attached to the Arduino?
-#define LED_CONFIG   NEO_GRB + NEO_KHZ800   // NEO_GRB / NEO_RGB / NEO_RGBW
+#define LED_COUNT                     100   // How many LED pixels are attached to the Arduino?
+#define LED_CONFIG   NEO_RGB + NEO_KHZ800   // NEO_GRB / NEO_RGB / NEO_RGBW
 #define BAT_VOLT_PIN                  A13   // Battery voltage measure pin
 #define STATUS_LED_PIN                 13   // Status indicator LED pin
 #define MAX_ANALOG_VAL             4095.0
@@ -35,6 +35,9 @@ enum UnitID {
   CYAN = 7
 };
 #define UNIT_ID                      RED
+
+#define BOUNCE_DWELL_MIN 25
+#define BOUNCE_DWELL_MAX 200
 
 /*
  * Runtime configurables
@@ -71,6 +74,7 @@ enum dmxMode {
   MODE_FORWARD_BOUNCE,
   MODE_REVERSE,
   MODE_REVERSE_BOUNCE,
+  MODE_UNINITIALIZED
 };
 
 /*
@@ -259,7 +263,8 @@ void neopixelOutputLoop(void * parameters) {
   int target_position = 0;
   uint8_t previous_intensity = 0;
   uint8_t current_intensity = 0;
-  dmxMode mode;
+  dmxMode previous_mode = MODE_UNINITIALIZED;
+  dmxMode current_mode = MODE_UNINITIALIZED;
   uint8_t red;
   uint8_t green;
   uint8_t blue;
@@ -282,30 +287,28 @@ void neopixelOutputLoop(void * parameters) {
   dmx_data = (dmxData*) &dmxBuf[dmx_start-1];
 
   for(;;) {
-
     switch (dmx_data->mode) {
       case 0 ... 63:
-        mode = MODE_FORWARD;
+        current_mode = MODE_FORWARD;
         break;
       case 64 ... 127:
-        mode = MODE_FORWARD_BOUNCE;
+        current_mode = MODE_FORWARD_BOUNCE;
         break;
       case 128 ... 191:
-        mode = MODE_REVERSE;
+        current_mode = MODE_REVERSE;
         break;
       case 192 ... 255:
-        mode = MODE_REVERSE_BOUNCE;
+        current_mode = MODE_REVERSE_BOUNCE;
         break;
     }
-
     start = ((strip.numPixels()-1) * dmx_data->start) / 255;
     end = ((strip.numPixels()-1) * dmx_data->end) / 255;
     bounce = ((strip.numPixels()-1) * dmx_data->bounce) / 255;
     current_intensity = dmx_data->intensity;
 
-    if ((previous_intensity == 0) && (current_intensity != 0)) {
+    if (((previous_intensity == 0) && (current_intensity != 0)) || (previous_mode != current_mode)) {
       // We have shifted from zero intensity to non-zero intensity
-      if ((mode == MODE_FORWARD) || (mode == MODE_FORWARD_BOUNCE)) {
+      if ((current_mode == MODE_FORWARD) || (current_mode == MODE_FORWARD_BOUNCE)) {
         current_position = start;
         target_position = end;
       } else {
@@ -326,15 +329,16 @@ void neopixelOutputLoop(void * parameters) {
       strip.setPixelColor(current_position, red, green, blue);
     }
     strip.show();
-    // Serial.printf("Loop %d position %d target %d previous_intensity %d current_intensity %d start %d end %d mode %d state %d\n", output_loop_count, current_position, target_position, previous_intensity, current_intensity, start, end, mode, state);
+    // Serial.printf("Loop %d position %d target %d previous_intensity %d current_intensity %d start %d end %d mode %d state %d\n", output_loop_count, current_position, target_position, previous_intensity, current_intensity, start, end, current_mode, state);
 
 
     if (current_position == target_position) {
-      if ((mode == MODE_FORWARD) || (mode == MODE_REVERSE)) {
+      if ((current_mode == MODE_FORWARD) || (current_mode == MODE_REVERSE)) {
         state = OFF;
       } else {
         state = BOUNCING;
-        if (mode == MODE_FORWARD_BOUNCE) {
+        delay((rand() % (BOUNCE_DWELL_MAX - BOUNCE_DWELL_MIN + 1)) + BOUNCE_DWELL_MIN);
+        if (current_mode == MODE_FORWARD_BOUNCE) {
           target_position = (rand() % (end - bounce + 1)) + bounce;
         } else {
           target_position = (rand() % (bounce - start + 1)) + start;
@@ -350,6 +354,7 @@ void neopixelOutputLoop(void * parameters) {
 
     output_loop_count++;
     previous_intensity = current_intensity;
+    previous_mode = current_mode;
 
     // Print a status on every 40th iteration (ie. every 40*25msec = 1000msec = 1 sec).
     if (output_loop_count % 40 == 0) {
