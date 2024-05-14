@@ -1,20 +1,14 @@
-// Radio code from https://juskihackery.wordpress.com/2021/01/31/how-the-cheap-wireless-dmx-boards-use-the-nrf24l01-protocol/
-
-#include <SPI.h>
-#include <nRF24L01.h>
-#include <RF24.h>
+// #include <SPI.h>
 #include <Adafruit_NeoPixel.h>
 #include <esp_task_wdt.h>
+
+#include <WirelessDMXReceiver.h>
 
 /*
  * Compile-time configurables
  */
 #define VERBOSE                             // Enable serial logging
 
-#define DMX_BUFSIZE                   512   // Total number of channels in a DMX universe
-#define WDMX_PAYLOAD_SIZE              32   // Payload size in the NRF24L01 protocol
-#define WDMX_HEADER_SIZE                4   // Header size in the NRF24L01 protocol
-#define WDMX_MAGIC                    128   // Magic number expected in byte 0 of every receive packet
 #define WDT_TIMEOUT                    60   // 60 seconds watchdog timeout
 #define RF24_PIN_CE                    25   // GPIO connected to nRF24L01 CE pin (module pin 3)
 #define RF24_PIN_CSN                    4   // GPIO connected to nRF24L01 CSN pin (module pin 4)
@@ -33,141 +27,9 @@
 int dmx_address = 501;                        // DMX  address, 1-512
 
 /*
- * Structs and forward declarations
- */
-struct wdmxReceiveBuffer {
-  uint8_t magic; // Always WDMX_MAGIC
-  uint8_t payloadID;
-  uint16_t highestChannelID; // Highest channel ID in the universe (not necessarily in this packet). Basically, highestChannelID + 1 = numChannels.
-  uint8_t dmxData[WDMX_PAYLOAD_SIZE-WDMX_HEADER_SIZE];
-};
-
-TaskHandle_t dmxReceiveTask;
-void dmxReceiveLoop(void * parameters);
-
-/*
  * Runtime variables
  */
-RF24 radio(RF24_PIN_CE, RF24_PIN_CSN);
-
-static unsigned int rxCount = 0;
-static unsigned int rxErrCount = 0;
-static uint8_t dmxBuf[DMX_BUFSIZE];
-
-
-/*
- * Helper function to convert a (Unit ID, Channel ID) tuple into the
- * RF24 header structure that is used for this tuple.
- *
- * Ref https://juskihackery.wordpress.com/2021/01/31/how-the-cheap-wireless-dmx-boards-use-the-nrf24l01-protocol/
- * for a description of these values.
- *
- */
-uint64_t getAddress(int unitID, int channelID) {
-  union wdmxAddress {
-    struct {
-      uint8_t channel;      // Channel ID
-      uint8_t unitID;       // Unit ID
-      uint8_t notChannel;   // Bitwise complement (bitwise NOT) of the Channel ID
-      uint8_t notUnitID;    // Bitwise complement (bitwise NOT) of the unit ID
-      uint8_t sum;          // Algebraic sum of Unit ID and Channel ID
-    } structured;
-    uint64_t uint64;
-  } address;
-
-  address.structured.channel = channelID;
-  address.structured.unitID = unitID;
-  address.structured.notChannel = ~channelID;
-  address.structured.notUnitID = ~unitID;
-  address.structured.sum = channelID + unitID;
-
-  return address.uint64;
-}
-
-/*
- * Given a Unit ID, probe all channels to see if we're receiving data for this unit ID
- */
-bool doScan(int unitID) {
-  /* Unit IDs
-      1: Red
-      2: Green
-      4: Blue
-      5: Purple
-      7: Cyan    
-   */
-  wdmxReceiveBuffer rxBuf;
-
-  for (int rfCH = 0; rfCH < 126; rfCH++) {  
-    delay(1);
-    if (rfCH % 16 == 0) {
-      digitalWrite(STATUS_LED_PIN, !digitalRead(STATUS_LED_PIN)); // Blink status LED while scanning - this will flash quickly
-    }
-
-    radio.flush_rx();
-    radio.openReadingPipe(0, getAddress(unitID, rfCH));
-    radio.startListening();
-    radio.setChannel(rfCH);
-    #ifdef VERBOSE
-    Serial.printf("Trying channel %d (%d), unit ID %d\n", radio.getChannel(), rfCH, unitID);
-    #endif
-
-    unsigned long started_waiting_at = micros(); // timeout setup
-    bool timeout = false; 
-    while (!radio.available()) {                             // While nothing is received
-      if (micros() - started_waiting_at > 10000) {           // If waited longer than 10ms, indicate timeout and exit while loop
-         timeout = true;
-         break;
-      }     
-    }
-
-    if (!timeout) {  
-      radio.read(&rxBuf, sizeof(rxBuf));
-      if (rxBuf.magic == WDMX_MAGIC) {
-        #ifdef VERBOSE
-        Serial.printf("Found a transmitter on channel %d, unit ID %d\n", rfCH, unitID);
-        #endif
-        return(true);
-      }
-    }
-  }
-  return(false);
-}
-
-void dmxReceiveSetup() {
-  bool gotLock;
-
-  for (;;) {
-    for (int unitID = 1; unitID < 8; unitID++) {
-      Serial.printf("Scanning for Unit ID %d\n", unitID);
-      gotLock = doScan(unitID);
-      if (gotLock) {
-        break;
-      }
-    }
-    if (gotLock) {
-      break;
-    }
-  }
-
-  Serial.printf("Got lock\n");
-
-  // Clear the DMX buffer
-  memset(&dmxBuf, 0x00, sizeof(dmxBuf)); // Clear DMX buffer
-
-  Serial.printf("Cleared DMX buffer\n");
-
-  // Start the output task
-  xTaskCreatePinnedToCore(
-    dmxReceiveThread,       /* Function to implement the task */
-    "DMX Receive Thread",   /* Name of the task */
-    10000,                /* Stack size in words */
-    NULL,                 /* Task input parameter */
-    0,                    /* Priority of the task */
-    &dmxReceiveTask,      /* Task handle. */
-    0                     /* Core where the task should run */
-  );
-  esp_task_wdt_add(dmxReceiveTask);
-}
+WirelessDMXReceiver receiver(RF24_PIN_CE, RF24_PIN_CSN, STATUS_LED_PIN);
 
 void setup() { 
   #ifdef VERBOSE
@@ -176,81 +38,29 @@ void setup() {
 
   esp_task_wdt_init(WDT_TIMEOUT, true); //enable panic so ESP32 restarts
   
-  if (!radio.begin()){
-    #ifdef VERBOSE
-    Serial.println("ERROR: failed to start radio");
-    #endif
-  }
   delay(100);
   #ifdef VERBOSE
   Serial.println("Starting up!");
   #endif
-  radio.setDataRate(RF24_250KBPS);
-  radio.setCRCLength(RF24_CRC_16);
-  //radio.setPALevel(RF24_PA_MAX);
-  radio.setPALevel(RF24_PA_LOW);
-  radio.setAutoAck(false);
-  radio.setPayloadSize(WDMX_PAYLOAD_SIZE);
 
   // Power PropMaker wing NeoPixel circuit
   pinMode(LED_PIN, OUTPUT);
-  digitalWrite(LED_PIN, HIGH);
+  digitalWrite(LED_PIN, LOW);
 
   pinMode(STATUS_LED_PIN, OUTPUT); // (Re)-set status LED for blinking
-
-  dmxReceiveSetup();
 
   // Bring up the status LED
   pinMode(STATUS_LED_PIN, OUTPUT);
   digitalWrite(STATUS_LED_PIN, HIGH);
-}
 
-void dmxReceiveLoop() {
-  wdmxReceiveBuffer rxBuf;
-
-  while (radio.available()) {
-    /*
-     * Read DMX values from radio.
-     */
-
-    radio.read(&rxBuf, sizeof(rxBuf));
-
-    if (rxBuf.magic != WDMX_MAGIC) {
-      // Received packet with unexpected magic number. Ignore.
-      rxErrCount++;
-      continue;
-    }
-
-    rxCount++;
-    esp_task_wdt_reset();
-
-    int dmxChanStart = rxBuf.payloadID * sizeof(rxBuf.dmxData);
-
-    // put payload into dmx buffer. If data goes beyond 512 channels, wrap over.
-    memcpy(&dmxBuf[dmxChanStart], &rxBuf.dmxData, min(sizeof(rxBuf.dmxData), sizeof(dmxBuf)-dmxChanStart));
-    if (dmxChanStart+sizeof(rxBuf.dmxData) > sizeof(dmxBuf)) {
-      memcpy(&dmxBuf, &rxBuf.dmxData[sizeof(dmxBuf)-dmxChanStart], dmxChanStart+sizeof(rxBuf.dmxData)-sizeof(dmxBuf));
-    }
-
-    // Pulse status LED when we're receiving
-    if ((rxCount / 1024) % 2) {
-      analogWrite(STATUS_LED_PIN, (rxCount % 1024)/4);
-    } else {
-      analogWrite(STATUS_LED_PIN, 255-((rxCount % 1024)/4));
-    }
-  }
-}
-
-void dmxReceiveThread(void * parameters) {
-  while (true) {
-    dmxReceiveLoop();
-  }
+  receiver.debug = true;
+  receiver.begin();
 }
 
 void loop() {
   unsigned long outputLoopCount = 0;
   for(;;) {
-    analogWrite(LED_PIN, dmxBuf[dmx_address-1]);
+    analogWrite(LED_PIN, receiver.dmxBuffer[dmx_address-1]);
     outputLoopCount++;
     delay(25);
 
@@ -258,7 +68,9 @@ void loop() {
     if (outputLoopCount % 40 == 0) {
       float voltageLevel = (analogRead(BAT_VOLT_PIN) / MAX_ANALOG_VAL) * 2 * 1.1 * 3.3; // calculate voltage level
       float batteryFraction = voltageLevel / MAX_BATTERY_VOLTAGE;
-      Serial.printf("RxCount: %d (avg %f/sec), errCount %d, Bat Voltage: %fV Percent: %.2f%%\n", rxCount, ((float)rxCount/millis()*1000), rxErrCount, voltageLevel, (batteryFraction * 100));
+      unsigned int rxCount = receiver.rxCount();
+      unsigned int rxErrors = receiver.rxErrors();
+      Serial.printf("RxCount: %d (avg %f/sec), errCount %d, Bat Voltage: %fV Percent: %.2f%%\n", rxCount, ((float)rxCount/millis()*1000), rxErrors, voltageLevel, (batteryFraction * 100));
     }
   }
 }
