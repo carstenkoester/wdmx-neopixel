@@ -45,7 +45,7 @@ void setup() {
 
   // Power PropMaker wing NeoPixel circuit
   pinMode(LED_PIN, OUTPUT);
-  digitalWrite(LED_PIN, LOW);
+  digitalWrite(LED_PIN, HIGH);
 
   pinMode(STATUS_LED_PIN, OUTPUT); // (Re)-set status LED for blinking
 
