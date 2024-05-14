@@ -30,7 +30,7 @@
 /*
  * Runtime configurables
  */
-int dmx_address = 2;                        // DMX  address, 1-512
+int dmx_address = 501;                        // DMX  address, 1-512
 
 /*
  * Structs and forward declarations
@@ -42,9 +42,8 @@ struct wdmxReceiveBuffer {
   uint8_t dmxData[WDMX_PAYLOAD_SIZE-WDMX_HEADER_SIZE];
 };
 
-TaskHandle_t neopixelOutputTask;
-void neopixelOutputLoop(void * parameters);
-
+TaskHandle_t dmxReceiveTask;
+void dmxReceiveLoop(void * parameters);
 
 /*
  * Runtime variables
@@ -134,32 +133,7 @@ bool doScan(int unitID) {
   return(false);
 }
 
-void setup() { 
-  #ifdef VERBOSE
-  Serial.begin(115200);
-  #endif
-
-  esp_task_wdt_init(WDT_TIMEOUT, true); //enable panic so ESP32 restarts
-  esp_task_wdt_add(NULL);               //add current thread to WDT watch  
-  
-  if (!radio.begin()){
-    #ifdef VERBOSE
-    Serial.println("ERROR: failed to start radio");
-    #endif
-  }
-  delay(100);
-  #ifdef VERBOSE
-  Serial.println("Starting up!");
-  #endif
-  radio.setDataRate(RF24_250KBPS);
-  radio.setCRCLength(RF24_CRC_16);
-  //radio.setPALevel(RF24_PA_MAX);
-  radio.setPALevel(RF24_PA_LOW);
-  radio.setAutoAck(false);
-  radio.setPayloadSize(WDMX_PAYLOAD_SIZE);
-
-  pinMode(STATUS_LED_PIN, OUTPUT); // (Re)-set status LED for blinking
-
+void dmxReceiveSetup() {
   bool gotLock;
 
   for (;;) {
@@ -177,30 +151,61 @@ void setup() {
 
   Serial.printf("Got lock\n");
 
+  // Clear the DMX buffer
+  memset(&dmxBuf, 0x00, sizeof(dmxBuf)); // Clear DMX buffer
+
+  Serial.printf("Cleared DMX buffer\n");
+
+  // Start the output task
+  xTaskCreatePinnedToCore(
+    dmxReceiveThread,       /* Function to implement the task */
+    "DMX Receive Thread",   /* Name of the task */
+    10000,                /* Stack size in words */
+    NULL,                 /* Task input parameter */
+    0,                    /* Priority of the task */
+    &dmxReceiveTask,      /* Task handle. */
+    0                     /* Core where the task should run */
+  );
+  esp_task_wdt_add(dmxReceiveTask);
+}
+
+void setup() { 
+  #ifdef VERBOSE
+  Serial.begin(115200);
+  #endif
+
+  esp_task_wdt_init(WDT_TIMEOUT, true); //enable panic so ESP32 restarts
+  
+  if (!radio.begin()){
+    #ifdef VERBOSE
+    Serial.println("ERROR: failed to start radio");
+    #endif
+  }
+  delay(100);
+  #ifdef VERBOSE
+  Serial.println("Starting up!");
+  #endif
+  radio.setDataRate(RF24_250KBPS);
+  radio.setCRCLength(RF24_CRC_16);
+  //radio.setPALevel(RF24_PA_MAX);
+  radio.setPALevel(RF24_PA_LOW);
+  radio.setAutoAck(false);
+  radio.setPayloadSize(WDMX_PAYLOAD_SIZE);
+
   // Power PropMaker wing NeoPixel circuit
   pinMode(LED_PIN, OUTPUT);
   digitalWrite(LED_PIN, HIGH);
 
-  // Clear the DMX buffer
-  memset(&dmxBuf, 0x00, sizeof(dmxBuf)); // Clear DMX buffer
+  pinMode(STATUS_LED_PIN, OUTPUT); // (Re)-set status LED for blinking
+
+  dmxReceiveSetup();
 
   // Bring up the status LED
   pinMode(STATUS_LED_PIN, OUTPUT);
   digitalWrite(STATUS_LED_PIN, HIGH);
-
-  // Start the output task
-  xTaskCreatePinnedToCore(
-    neopixelOutputLoop,   /* Function to implement the task */
-    "NeopixelOutputTask", /* Name of the task */
-    10000,                /* Stack size in words */
-    NULL,                 /* Task input parameter */
-    0,                    /* Priority of the task */
-    &neopixelOutputTask,  /* Task handle. */
-    0                     /* Core where the task should run */
-  );
 }
 
-void loop() {
+void dmxReceiveLoop() {
   wdmxReceiveBuffer rxBuf;
 
   while (radio.available()) {
@@ -209,6 +214,7 @@ void loop() {
      */
 
     radio.read(&rxBuf, sizeof(rxBuf));
+
     if (rxBuf.magic != WDMX_MAGIC) {
       // Received packet with unexpected magic number. Ignore.
       rxErrCount++;
@@ -235,9 +241,14 @@ void loop() {
   }
 }
 
-void neopixelOutputLoop(void * parameters) {
-  unsigned long outputLoopCount = 0;
+void dmxReceiveThread(void * parameters) {
+  while (true) {
+    dmxReceiveLoop();
+  }
+}
 
+void loop() {
+  unsigned long outputLoopCount = 0;
   for(;;) {
     analogWrite(LED_PIN, dmxBuf[dmx_address-1]);
     outputLoopCount++;
