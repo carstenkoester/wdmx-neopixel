@@ -1,4 +1,3 @@
-// #include <SPI.h>
 #include <Adafruit_NeoPixel.h>
 #include <esp_task_wdt.h>
 
@@ -12,7 +11,6 @@
 #define WDT_TIMEOUT                    60   // 60 seconds watchdog timeout
 #define RF24_PIN_CE                    25   // GPIO connected to nRF24L01 CE pin (module pin 3)
 #define RF24_PIN_CSN                    4   // GPIO connected to nRF24L01 CSN pin (module pin 4)
-// #define RF24_PIN_IRQ                21   // GPIO connected to nRF24L01 IRQ pin (module pin 8) - NOT USED IN THIS VERSION
 
 #define LED_PIN                        33   // Pin that the LED is on
 
@@ -43,9 +41,9 @@ void setup() {
   Serial.println("Starting up!");
   #endif
 
-  // Power PropMaker wing NeoPixel circuit
+  // Turn off LED while scanning
   pinMode(LED_PIN, OUTPUT);
-  digitalWrite(LED_PIN, HIGH);
+  digitalWrite(LED_PIN, LOW);
 
   pinMode(STATUS_LED_PIN, OUTPUT); // (Re)-set status LED for blinking
 
@@ -61,6 +59,7 @@ void loop() {
   unsigned long outputLoopCount = 0;
   for(;;) {
     analogWrite(LED_PIN, receiver.dmxBuffer[dmx_address-1]);
+    // analogWrite(LED_PIN, 255);
     outputLoopCount++;
     delay(25);
 
