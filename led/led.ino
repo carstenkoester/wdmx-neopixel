@@ -1,4 +1,4 @@
-#include "../libraries/dmxGadget/dmxGadget.h"
+#include <dmxGadget.h>
 
 /*
  * Compile-time configurables
