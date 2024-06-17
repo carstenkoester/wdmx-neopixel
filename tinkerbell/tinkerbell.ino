@@ -34,7 +34,7 @@ enum UnitID {
   PURPLE = 5,
   CYAN = 7
 };
-#define UNIT_ID                      RED
+#define UNIT_ID                      BLUE
 
 #define BOUNCE_DWELL_MIN 25
 #define BOUNCE_DWELL_MAX 200
