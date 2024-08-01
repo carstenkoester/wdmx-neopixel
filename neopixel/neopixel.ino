@@ -6,10 +6,9 @@
 #define LED_COUNT                     100  // How many LED pixels are attached to the Arduino?
 
 /*
- * Runtime configurables
+ * Runtime configurables and variables
  */
-
-dmxGadget gadget("RGBStrip2", 100);
+dmxGadget gadget("Neopixel", LED_COUNT);
 
 struct dmxData {
   uint8_t intensity;
@@ -19,20 +18,26 @@ struct dmxData {
   uint8_t macro;
 } dmx_data;
 
-unsigned long outputLoopCount = 0;
 uint16_t firstPixelHue = 0;
 
-void setup() { 
+void setup() {
   gadget.setup();
   gadget.config.advertise();
+//  gadget.receiver.capture = true;
+}
+
+inline uint8_t getPixelIntensity(uint8_t value)
+{
+  return ((value * dmx_data.intensity)/255);
 }
 
 void loop() {
-  gadget.receiver.getValues(gadget.dmxAddress.value(), sizeof(dmx_data), &dmx_data);
+  gadget.loop();
 
+  gadget.receiver.getValues(gadget.dmxAddress.value(), sizeof(dmx_data), &dmx_data);
   if (dmx_data.macro < 128) {
     for(unsigned int i=0; i<gadget.strip.numPixels(); i++) {
-      gadget.strip.setPixelColor(i, ((dmx_data.red * dmx_data.intensity)/255), ((dmx_data.green * dmx_data.intensity)/255), ((dmx_data.blue * dmx_data.intensity)/255));
+      gadget.strip.setPixelColor(i, getPixelIntensity(dmx_data.red), getPixelIntensity(dmx_data.green), getPixelIntensity(dmx_data.blue));
     }
     gadget.strip.show();
     delay(25);
@@ -43,19 +48,21 @@ void loop() {
     delay(255-dmx_data.macro);
   }
 
-  outputLoopCount++;
+  if (gadget.receiver.capture && gadget.receiver.debugBuffer.isFull()) {
+    Serial.println("Debug buffer is full");
+    gadget.receiver.capture = false;
 
-  // Print a status on every 40th iteration (ie. every 40*25msec = 1000msec = 1 sec).
-  if (outputLoopCount % 40 == 0) {
-    float voltageLevel = (analogRead(BAT_VOLT_PIN) / MAX_ANALOG_VAL) * 2 * 1.1 * 3.3; // calculate voltage level
-    float batteryFraction = voltageLevel / MAX_BATTERY_VOLTAGE;
-    unsigned int rxCount = gadget.receiver.rxCount();
-    unsigned int rxErrors = gadget.receiver.rxErrors();
-    Serial.printf("Addr %d, Uptime: %d, RxCount: %d (avg %f/sec), errCount %d, Bat Voltage: %fV Percent: %.2f%%, BLE active %d, connected: %d\n", gadget.dmxAddress.value(), millis()/1000, rxCount, ((float)rxCount/millis()*1000), rxErrors, voltageLevel, (batteryFraction * 100), gadget.config.active(), BLE.connected());
-
-    if ((millis() > 300000) && (gadget.config.active())) {
-      Serial.printf("Disabling Bluetooth configuration\n");
-      gadget.config.end();
+    WirelessDMXReceiver::wdmxReceiveBuffer buf;
+    unsigned int i=0;
+    Serial.println("popping...");
+    while (gadget.receiver.debugBuffer.pop(buf)) {
+      i++;
+      Serial.printf("Pkt %04d Magic %02x Payload %02x (%d) HighestChannel %04x (%d), Data ", i, buf.magic, buf.payloadID, buf.payloadID, buf.highestChannelID, buf.highestChannelID);
+      for (int j = 0; j < sizeof(buf.dmxData); j++) {
+        Serial.printf("%02x ", buf.dmxData[j]);
+      }
+      Serial.printf("\n");
     }
+    Serial.println("Done popping...");
   }
 }
