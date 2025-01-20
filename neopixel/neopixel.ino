@@ -3,7 +3,7 @@
 /*
  * Compile-time configurables
  */
-#define LED_COUNT                     100  // How many LED pixels are attached to the Arduino?
+#define LED_COUNT                     256  // How many LED pixels are attached to the Arduino?
 
 /*
  * Runtime configurables and variables
