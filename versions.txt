@@ -1,0 +1,14 @@
+Using board 'featheresp32' from platform 2.0.17
+Using core 'esp32' from platform 2.0.17
+
+Using library dmxGadget
+Using library BLEConfig
+Using library WirelessDMXReceiver
+
+Using library Adafruit NeoPixel at version 1.12.3
+Using library RF24 at version 1.4.9
+Using library SPI at version 2.0.0
+Using library RingBuffer at version 1.0.5
+Using library Preferences at version 2.0.0
+Using library ArduinoBLE at version 1.3.7
+Using library Battery_18650_Stats at version 1.0.0
