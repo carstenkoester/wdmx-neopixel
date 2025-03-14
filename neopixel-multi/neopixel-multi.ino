@@ -15,7 +15,7 @@ const unsigned int PIXEL_CELLS[] = {
    6,  0,  7,  7,  7,  7,  7,  7,  7,  7,        // Pixels 53-61 are in cell 7
    7,  0,  8,  8,  8,  8,  8,  8,  8,  8,        // Pixels 63-71 are in cell 8
    8,  0,  0,  0,  0,  9,  9,  9,  9,  9,        // Pixels 76-81 are in cell 9
-   9,  0, 10, 10, 10, 10, 10, 10                 // Pixels 83-88 are in cell 10
+   9, 10, 10, 10, 10, 10, 10                     // Pixels 82-87 are in cell 10
 };
 
 /*
@@ -28,7 +28,7 @@ struct dmxData {
   uint8_t green;
   uint8_t blue;
 };
-unsigned int num_cells = 0;
+unsigned int num_cells = sizeof(PIXEL_CELLS)/sizeof(PIXEL_CELLS[0]);
 
 void setup() {
   gadget.setup();
