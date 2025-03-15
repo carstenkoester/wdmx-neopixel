@@ -15,7 +15,13 @@ const unsigned int PIXEL_CELLS[] = {
    6,  0,  7,  7,  7,  7,  7,  7,  7,  7,        // Pixels 53-61 are in cell 7
    7,  0,  8,  8,  8,  8,  8,  8,  8,  8,        // Pixels 63-71 are in cell 8
    8,  0,  0,  0,  0,  9,  9,  9,  9,  9,        // Pixels 76-81 are in cell 9
-   9, 10, 10, 10, 10, 10, 10                     // Pixels 82-87 are in cell 10
+   9, 10, 10, 10, 10, 10, 10,  0,  0,  0,        // Pixels 82-87 are in cell 10
+   0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+   0,  0,  0, 11, 12, 11, 12, 11, 12, 11,        // Pixels 104-118 are alternating between cells 11 and 12
+  12, 11, 12, 11, 12, 11, 12, 11,  0,  0,
+   0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+   0,  0,  0, 13, 14, 13, 14, 13, 14, 13,        // Pixels 134-150 are alternating between cells 13 and 14
+  14, 13, 14, 13, 14, 13, 14, 13, 14, 13,
 };
 
 /*
