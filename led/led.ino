@@ -8,19 +8,18 @@
 /*
  * Runtime configurables and variables
  */
-dmxGadget gadget("LED Candle", 0);
+DmxNowDmxGadget gadget("Candle", DMXGADGET_BOARD_XIAO_ESP32S3);
 
 /*
  * Main functions
  */
 void setup() { 
   gadget.setup();
-  gadget.config.advertise();
 }
 
 void loop() {
   gadget.loop();
 
-  analogWrite(LED_PIN, gadget.receiver.getValue(gadget.dmxAddress.value()));
+  analogWrite(LED_PIN, gadget.getValue(gadget.dmxAddress.value()));
   delay(25);
 }

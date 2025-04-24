@@ -6,7 +6,6 @@
 #define LED_COUNT                     sizeof(PIXEL_CELLS)/sizeof(PIXEL_CELLS[0])
 
 // For each pixel, indicate which cell it is in. Indicating 0 means this pixel in no cell at all.
-/*
 const unsigned int PIXEL_CELLS[] = {
    1,  1,  1,  1,  1,  1,  1,  1,  1,  0,        // Pixels 1-9 are in cell 1
    2,  2,  2,  2,  2,  2,  2,  2,  2,  0,        // Pixels 11-19 are in cell 2
@@ -24,31 +23,19 @@ const unsigned int PIXEL_CELLS[] = {
    0,  0,  0, 13, 14, 13, 14, 13, 14, 13,        // Pixels 134-150 are alternating between cells 13 and 14
   14, 13, 14, 13, 14, 13, 14, 13, 14, 13,
 };
-*/
-
-// 160 LEDs, 4 round-robin groups
-const unsigned int PIXEL_CELLS[] = {
-   1, 2, 3, 4, 1, 2, 3, 4, 1, 2, 3, 4, 1, 2, 3, 4, 1, 2, 3, 4, 1, 2, 3, 4, 1, 2, 3, 4, 1, 2, 3, 4,
-   1, 2, 3, 4, 1, 2, 3, 4, 1, 2, 3, 4, 1, 2, 3, 4, 1, 2, 3, 4, 1, 2, 3, 4, 1, 2, 3, 4, 1, 2, 3, 4,
-   1, 2, 3, 4, 1, 2, 3, 4, 1, 2, 3, 4, 1, 2, 3, 4, 1, 2, 3, 4, 1, 2, 3, 4, 1, 2, 3, 4, 1, 2, 3, 4,
-   1, 2, 3, 4, 1, 2, 3, 4, 1, 2, 3, 4, 1, 2, 3, 4, 1, 2, 3, 4, 1, 2, 3, 4, 1, 2, 3, 4, 1, 2, 3, 4,
-   1, 2, 3, 4, 1, 2, 3, 4, 1, 2, 3, 4, 1, 2, 3, 4, 1, 2, 3, 4, 1, 2, 3, 4, 1, 2, 3, 4, 1, 2, 3, 4,
-   1, 2, 3, 4, 1, 2, 3, 4, 1, 2, 3, 4, 1, 2, 3, 4, 1, 2, 3, 4, 1, 2, 3, 4, 1, 2, 3, 4, 1, 2, 3, 4,
-   1, 2, 3, 4, 1, 2, 3, 4, 1, 2, 3, 4, 1, 2, 3, 4, 1, 2, 3, 4, 1, 2, 3, 4, 1, 2, 3, 4, 1, 2, 3, 4,
-   1, 2, 3, 4, 1, 2, 3, 4, 1, 2, 3, 4, 1, 2, 3, 4, 1, 2, 3, 4, 1, 2, 3, 4, 1, 2, 3, 4, 1, 2, 3, 4,
-};
 
 /*
  * Runtime configurables and variables
  */
-dmxGadget gadget("NeoMC", LED_COUNT);
+// rf24DmxGadget gadget("NeoMC", LED_COUNT);
+DmxNowDmxGadget gadget("NeoMCNow", DMXGADGET_BOARD_XIAO_ESP32S3, LED_COUNT);
 
 struct dmxData {
   uint8_t red;
   uint8_t green;
   uint8_t blue;
 };
-unsigned int num_cells = sizeof(PIXEL_CELLS)/sizeof(PIXEL_CELLS[0]);
+unsigned int num_cells = 0;
 
 void setup() {
   gadget.setup();
@@ -59,7 +46,10 @@ void setup() {
       num_cells = PIXEL_CELLS[i];
     }
   }
+  Serial.printf("PIXEL_CELLS %d 0 %d NUM_CELLS %d\n", sizeof(PIXEL_CELLS), sizeof(PIXEL_CELLS[0]), LED_COUNT);
   Serial.printf("Have %d LEDs in %d cells\n", LED_COUNT, num_cells);
+
+  Serial.printf("IDF version %s\n", IDF_VER);
 }
 
 void loop() {
