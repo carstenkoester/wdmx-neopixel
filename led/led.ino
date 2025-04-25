@@ -3,12 +3,13 @@
 /*
  * Compile-time configurables
  */
-#define LED_PIN 33
+#define LED_PIN        1
+#define BOARD_TYPE     DMXGADGET_BOARD_XIAO_ESP32S3
 
 /*
  * Runtime configurables and variables
  */
-DmxNowDmxGadget gadget("Candle", DMXGADGET_BOARD_XIAO_ESP32S3);
+DmxNowDmxGadget gadget("Candle", BOARD_TYPE);
 
 /*
  * Main functions

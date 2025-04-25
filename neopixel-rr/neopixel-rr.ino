@@ -11,8 +11,8 @@
 /*
  * Runtime configurables and variables
  */
-rf24DmxGadget gadget("NeoRR24", DMXGADGET_BOARD_HUZZAH32_PROPMAKER_RF24, LED_COUNT);
-// DmxNowDmxGadget gadget("NeoRRNow", DMXGADGET_BOARD_HUZZAH32_PROPMAKER_RF24, LED_COUNT);
+// rf24DmxGadget gadget("NeoRR24", DMXGADGET_BOARD_HUZZAH32_PROPMAKER_RF24, LED_COUNT);
+DmxNowDmxGadget gadget("NeoRRNow", DMXGADGET_BOARD_HUZZAH32_PROPMAKER_RF24, LED_COUNT);
 // sACNDmxGadget gadget("NeoRRSACN", DMXGADGET_BOARD_HUZZAH32_PROPMAKER_RF24, LED_COUNT);
 
 struct dmxData {
@@ -33,7 +33,6 @@ void loop() {
   dmxData dmx_data[LED_COUNT * sizeof(dmxData)];
   unsigned int num_groups = numGroups.value();
 
-  if (millis() > lastMillis+25) {
   gadget.loop();
   gadget.getValues(gadget.dmxAddress.value(), sizeof(dmx_data), &dmx_data);
 
@@ -41,7 +40,6 @@ void loop() {
     gadget.strip.setPixelColor(i, dmx_data[i % num_groups].red, dmx_data[i % num_groups].green, dmx_data[i % num_groups].blue);
   }
   gadget.strip.show();
-  lastMillis=millis();
-  }
-  // delay(25);
+
+  delay(25);
 }
