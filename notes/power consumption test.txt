@@ -1,0 +1,28 @@
+Basic Ammeter test:
+
+5.0V
+
+Fairy light string, older pebble type (less flexible wiring) - https://www.amazon.com/dp/B0BVZLSDH6/ref=twister_B0BVZHPKHX?_encoding=UTF8&th=1
+BTF-LIGHTING Chasing Dream Full Color Twinkle Decorative Lights 16.4ft 5m 50LEDs Addressable WS2812B IC Fairy String Lights DC5V
+
+Receiver on, RF24, no LED - 0.08A
+R - 0.6A, G - 0.58A, B - 0.59A - All: 0.99A
+
+Two strings:
+
+R - 0.75A, G - 0.73, B - 0.74, All: 1.03A (but voltage drop)
+
+
+PVC pebble - https://www.amazon.com/dp/B0CCS11V7H?ref=ppx_yo2ov_dt_b_fed_asin_title&th=1
+BTF-LIGHTING WS2812B IC RGB Pebble Pixel Light Seed String Roll Individually Addressable Chasing Color Smart Fairy String Light PVC Wire 16.4FT 50LED DC5V
+
+0.53/0.44/0.43/0.72
+
+
+String:
+
+0.75/0.65/0.62/1.10
+
+With injection both sides: 
+
+0.81/0.79/0.78/2.04

@@ -3,15 +3,14 @@
 /*
  * Compile-time configurables
  */
-#define LED_POWER 33
-#define LED_R 27
-#define LED_G 12
-#define LED_B 13
+#define LED_R 19
+#define LED_G 22
+#define LED_B 21
 
 /*
  * Runtime configurables and variables
  */
-dmxGadget gadget("RGBW", 0);
+rf24DmxGadget gadget("RGB", DMXGADGET_BOARD_HUZZAH32_RF24, 0);
 
 struct dmxData {
   uint8_t red;
@@ -23,11 +22,11 @@ struct dmxData {
  * Main functions
  */
 void setup() { 
-  gadget.setup();
-  gadget.config.advertise();
+  gadget.setup({});
 
-  pinMode(LED_POWER, OUTPUT);
-  digitalWrite(LED_POWER, HIGH);
+  pinMode(LED_R, OUTPUT);
+  pinMode(LED_G, OUTPUT);
+  pinMode(LED_B, OUTPUT);
 }
 
 void loop() {

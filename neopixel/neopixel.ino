@@ -3,12 +3,12 @@
 /*
  * Compile-time configurables
  */
-#define LED_COUNT                     256  // How many LED pixels are attached to the Arduino?
+#define LED_COUNT                     100  // How many LED pixels are attached to the Arduino?
 
 /*
  * Runtime configurables and variables
  */
-dmxGadget gadget("Neopixel", LED_COUNT);
+DmxNowDmxGadget gadget("NeoNow", DMXGADGET_BOARD_SPARKLE_MOTION_MINI, LED_COUNT);
 
 struct dmxData {
   uint8_t intensity;
@@ -22,7 +22,6 @@ uint16_t firstPixelHue = 0;
 
 void setup() {
   gadget.setup();
-  gadget.config.advertise();
 }
 
 inline uint8_t pixelIntensity(uint8_t value)

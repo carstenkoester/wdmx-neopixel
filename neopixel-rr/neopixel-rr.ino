@@ -6,14 +6,16 @@
 /*
  * Compile-time configurables
  */
-#define LED_COUNT   100
+#define LED_COUNT   250
 
 /*
  * Runtime configurables and variables
  */
 // rf24DmxGadget gadget("NeoRR24", DMXGADGET_BOARD_HUZZAH32_PROPMAKER_RF24, LED_COUNT);
-DmxNowDmxGadget gadget("NeoRRNow", DMXGADGET_BOARD_HUZZAH32_PROPMAKER_RF24, LED_COUNT);
 // sACNDmxGadget gadget("NeoRRSACN", DMXGADGET_BOARD_HUZZAH32_PROPMAKER_RF24, LED_COUNT);
+
+DmxNowDmxGadget gadget("NeoRRNow", DMXGADGET_BOARD_SPARKLE_MOTION_MINI, LED_COUNT);
+// DmxNowDmxGadget gadget("NeoRRNow", DMXGADGET_BOARD_SPARKLE_MOTION, LED_COUNT);
 
 struct dmxData {
   uint8_t red;
@@ -23,11 +25,8 @@ struct dmxData {
 BLEUIntConfigItem numGroups("LED Groups", 4);
 
 void setup() {
-//  gadget.setup(std::vector<BLEConfigItem*> {&numGroups});
   gadget.setup({&numGroups});
 }
-
-unsigned long lastMillis = 0;
 
 void loop() {
   dmxData dmx_data[LED_COUNT * sizeof(dmxData)];
